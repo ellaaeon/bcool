@@ -136,6 +136,34 @@
             background-color: var(--accent);
             color: var(--white);
         }
+        .quick-actions {
+        display: flex;
+        gap: 8px;
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        }
+
+        .qa-btn {
+        border: 1px solid rgba(30, 90, 150, 0.25);
+        background: #f5f8ff;
+        color: var(--primary);
+        padding: 8px 10px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        }
+
+        .qa-btn:hover {
+        transform: translateY(-1px);
+        border-color: rgba(30, 90, 150, 0.45);
+        }
+
+        .qa-btn:active {
+        transform: translateY(0px);
+        }
 
         .btn-primary:hover {
             background-color: #ff8600;
@@ -862,10 +890,23 @@
             <button class="chatbox-close" id="chatClose">✕</button>
         </div>
         <div id="chatlog" class="chatlog"></div>
-        <div class="chatinput">
-            <input id="chatmsg" type="text" placeholder="Ask about services or book a schedule..." />
-            <button id="chatsend">Send</button>
-        </div>
+
+<div class="quick-actions" id="quickActions">
+  <button class="qa-btn" data-msg="ac repair">AC Repair</button>
+  <button class="qa-btn" data-msg="cleaning">Cleaning/PM</button>
+  <button class="qa-btn" data-msg="gas freon">Gas/Freon</button>
+  <button class="qa-btn" data-msg="install">Install</button>
+  <button class="qa-btn" data-msg="ref repair">Ref Repair</button>
+  <button class="qa-btn" data-msg="washing machine">Washer</button>
+  <button class="qa-btn" data-msg="pila presyo">Price</button>
+  <button class="qa-btn" data-msg="pa schedule">Book</button>
+</div>
+
+<div class="chatinput">
+  <input id="chatmsg" type="text" placeholder="Ask about services or book a schedule..." />
+  <button id="chatsend">Send</button>
+</div>
+
     </div>
 
     <!-- Footer -->
@@ -949,7 +990,204 @@
             chatlog.scrollTop = chatlog.scrollHeight;
         }
 
-        async function sendMessage() {
+ // -------- FREE FAQ BOT + BOOKING FLOW (Waray/Tagalog/English) --------
+
+            const WHATSAPP_NUMBER = "639812278970"; // +63 981 227 8970
+            const WHATSAPP_BASE = `https://wa.me/${WHATSAPP_NUMBER}?text=`;
+
+            let bookingMode = false;
+            let bookingStep = 0;
+            let bookingData = {
+            name: "",
+            location: "",
+            service: "",
+            issue: "",
+            datetime: ""
+            };
+
+            function normalizeText(s) {
+            return (s || "")
+                .toLowerCase()
+                .replace(/[\u2019\u2018]/g, "'")
+                .replace(/[^a-z0-9\s]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+            }
+
+            function hasAny(text, words) {
+            return words.some(w => text.includes(w));
+            }
+
+            function openWhatsAppBooking() {
+            const msg =
+            `Hi B-Cool! Pa-book po ako.
+
+            Name: ${bookingData.name}
+            Location/Barangay: ${bookingData.location}
+            Service: ${bookingData.service}
+            Problem/Details: ${bookingData.issue}
+            Preferred Date & Time: ${bookingData.datetime}
+
+            Sent via website chat.`;
+
+            const url = WHATSAPP_BASE + encodeURIComponent(msg);
+            window.open(url, "_blank");
+            }
+
+            function startBooking(serviceHint = "") {
+            bookingMode = true;
+            bookingStep = 1;
+            bookingData = { name: "", location: "", service: serviceHint || "", issue: "", datetime: "" };
+
+            addLine("bot", "Sige ✅ pa-schedule ta. (Booking)");
+            addLine("bot", "1/5: Ano an imo **pangaran**?");
+            }
+
+            function continueBooking(userInput) {
+            const text = userInput.trim();
+
+            if (bookingStep === 1) {
+                bookingData.name = text;
+                bookingStep = 2;
+                addLine("bot", "2/5: Hain ka? (Barangay/Area, Barugo or nearby)");
+                return;
+            }
+
+            if (bookingStep === 2) {
+                bookingData.location = text;
+                bookingStep = 3;
+                addLine("bot", "3/5: Ano nga serbisyo? (AC repair / cleaning PM / gas freon / install / ref / washing machine)");
+                return;
+            }
+
+            if (bookingStep === 3) {
+                bookingData.service = text;
+                bookingStep = 4;
+                addLine("bot", "4/5: Ano an problema? (e.g. diri nabugnaw, may tagas, error code, etc.)");
+                return;
+            }
+
+            if (bookingStep === 4) {
+                bookingData.issue = text;
+                bookingStep = 5;
+                addLine("bot", "5/5: Preferred **date & time**? (example: tomorrow 2pm / Jan 29 9am)");
+                return;
+            }
+
+            if (bookingStep === 5) {
+                bookingData.datetime = text;
+
+                addLine("bot", "Salamat! ✅ Ise-send ko na ini ha WhatsApp para diretso an booking.");
+                addLine("bot", "Opening WhatsApp…");
+
+                bookingMode = false;
+                bookingStep = 0;
+
+                openWhatsAppBooking();
+                return;
+            }
+            }
+
+            function botReply(rawMsg) {
+            const msg = normalizeText(rawMsg);
+
+            const KW = {
+                greeting: ["hi", "hello", "hey", "hoy", "uy", "maupay", "maupai", "maopay"],
+                price: ["price", "how much", "hm", "pila", "tagpila", "presyo", "rate", "bayad", "charge"],
+                schedule: ["book", "booking", "schedule", "appointment", "pa schedule", "pa check", "check up", "bisita"],
+                location: ["where", "asa", "hain", "diin", "location", "address", "barugo", "leyte", "area", "nearby"],
+                hours: ["open", "close", "hours", "oras", "avail", "available"],
+                ac_repair: ["ac repair", "repair", "guba", "diri nabugnaw", "di na bugnaw", "not cold", "no cool", "error"],
+                cleaning: ["clean", "cleaning", "maintenance", "pm", "preventive", "linis", "hugas"],
+                gas: ["gas", "freon", "refrigerant", "charge", "refill", "top up", "leak", "tagas"],
+                install: ["install", "installation", "kabit", "ikabit", "taod", "setup"],
+                uninstall: ["uninstall", "remove", "tanggal", "ibot", "kuha"],
+                ref: ["ref", "refrigerator", "fridge", "pridyider"],
+                wash: ["washing", "washer", "washing machine", "lavadora", "laba", "spin", "drain"],
+                freecheck: ["free", "free check", "free check up", "free checkup", "wara bayad", "libre"]
+            };
+
+            const CONTACT = "📞 0981-227-8970";
+
+            // Booking trigger
+            if (hasAny(msg, KW.schedule)) {
+                startBooking("");
+                return null; // booking will handle responses
+            }
+
+            // Greeting
+            if (hasAny(msg, KW.greeting)) {
+                return `Maupay! 👋 Ako an B-Cool assistant.
+            Pwede ka pumili gamit an buttons sa ubos, o mag-type:
+            “ac repair”, “cleaning/pm”, “gas/freon”, “install”, “pila presyo”, “pa schedule”.`;
+            }
+
+            // Location
+            if (hasAny(msg, KW.location)) {
+                return `📍 Barugo, Leyte kami. Nagse-serve kami ha Barugo ngan harani nga mga lugar.
+            Ano an imo barangay/area?`;
+            }
+
+            // Hours
+            if (hasAny(msg, KW.hours)) {
+                return `Available kami para service pinaagi hin booking. ✅
+            Ibutang la an imo lugar + preferred oras para ma-schedule ta dayon.`;
+            }
+
+            // Free check
+            if (hasAny(msg, KW.freecheck)) {
+                return `Yes ✅ may **FREE check-up** kami para service inquiries.
+            Gusto mo magpa-schedule? Type “pa schedule” o click **Book** button.`;
+            }
+
+            // Price
+            if (hasAny(msg, KW.price)) {
+                return `Ha presyo: nagde-depende ito ha unit type ngan issue.
+            ✅ May **FREE check-up** kami para sakto nga estimate.
+            I-send: unit type (split/window) + problema + lugar.`;
+            }
+
+            // Services
+            if (hasAny(msg, KW.ac_repair)) return `✅ AC repair. Ano an symptoms? (diri nabugnaw / tagas / error / diri naga andar). Type “pa schedule” para booking.`;
+            if (hasAny(msg, KW.cleaning)) return `✅ Cleaning/PM. Maupay ini para magdugay an AC. Type “pa schedule” para booking.`;
+            if (hasAny(msg, KW.gas)) return `✅ Gas/Freon. Ginche-check namon anay kon may leak/tagas. Type “pa schedule” para booking.`;
+            if (hasAny(msg, KW.install)) return `✅ Installation. I-send unit type + location. Type “pa schedule” para booking.`;
+            if (hasAny(msg, KW.uninstall)) return `✅ Uninstallation/removal. I-send unit type + location. Type “pa schedule” para booking.`;
+            if (hasAny(msg, KW.ref)) return `✅ Refrigerator repair. Ano an issue? (diri nabugnaw / saba / waray andar). Type “pa schedule” para booking.`;
+            if (hasAny(msg, KW.wash)) return `✅ Washing machine repair. Ano an issue? (diri mag-spin / diri mag-drain / tagas). Type “pa schedule” para booking.`;
+
+            // Fallback
+            return `Pasensya, diri ko fully nasabtan. 😅
+            Click one of the quick buttons below or type “pa schedule”.
+            Or tawag diretso: ${CONTACT}`;
+            }
+
+            // --- Quick buttons handler ---
+            document.querySelectorAll(".qa-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const msg = btn.getAttribute("data-msg") || "";
+                // Show as user message
+                addLine("user", msg);
+
+                // If booking button or service button should start booking with hint
+                if (normalizeText(msg).includes("pa schedule") || normalizeText(msg).includes("book")) {
+                startBooking("");
+                return;
+                }
+
+                // For service buttons, respond + offer booking
+                const reply = botReply(msg);
+                if (reply) addLine("bot", reply);
+
+                // If they clicked a specific service, offer instant booking flow
+                if (hasAny(normalizeText(msg), ["ac repair", "cleaning", "gas", "freon", "install", "ref", "washing"])) {
+                addLine("bot", "Gusto mo ipa-book dayon? Click **Book** or type “pa schedule”.");
+                }
+            });
+            });
+
+            // --- Replace sendMessage() so it supports booking mode ---
+            async function sendMessage() {
             const message = chatmsg.value.trim();
             if (!message) return;
 
@@ -957,21 +1195,20 @@
             chatmsg.value = "";
             chatsend.disabled = true;
 
-            try {
-                const res = await fetch("/.netlify/functions/chat", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ message }),
-                });
-
-                const data = await res.json();
-                addLine("bot", data.reply || "Sorry, something went wrong.");
-            } catch (e) {
-                addLine("bot", "Network error. Please try again.");
-            } finally {
+            setTimeout(() => {
+                if (bookingMode) {
+                continueBooking(message);
                 chatsend.disabled = false;
+                return;
+                }
+
+                const reply = botReply(message);
+                if (reply) addLine("bot", reply);
+
+                chatsend.disabled = false;
+            }, 250);
             }
-        }
+
 
         chatsend.addEventListener("click", sendMessage);
         chatmsg.addEventListener("keydown", (e) => {
